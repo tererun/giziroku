@@ -7,6 +7,8 @@ Whisper + pyannote を載せた、文字起こし / 話者分離 API。GTX 1070 
 - API キー認証 (`X-API-Key` もしくは WS なら `?api_key=`)
 - シンプルな単一ワーカーキュー (GPU を直列化)
 
+**クライアント実装者向け:** 各子リポジトリの `docs/` に置くことを想定した、自己完結型の API 仕様書を [`docs/giziroku-api.md`](docs/giziroku-api.md) に置いています (AI コーディングアシスタントに読ませる用途も想定)。
+
 ## 必要なもの
 
 - Ubuntu + NVIDIA ドライバ (GTX 1070 以降)
