@@ -1,15 +1,15 @@
 from functools import lru_cache
-from typing import List
+from typing import Annotated, List
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     hf_token: str = Field(default="", alias="HF_TOKEN")
-    api_keys: List[str] = Field(default_factory=list, alias="API_KEYS")
+    api_keys: Annotated[List[str], NoDecode] = Field(default_factory=list, alias="API_KEYS")
 
     whisper_model: str = Field(default="large-v3", alias="WHISPER_MODEL")
     whisper_compute_type: str = Field(default="int8_float16", alias="WHISPER_COMPUTE_TYPE")
