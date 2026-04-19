@@ -1,15 +1,15 @@
 from functools import lru_cache
-from typing import Annotated, List
+from typing import List
 
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     hf_token: str = Field(default="", alias="HF_TOKEN")
-    api_keys: Annotated[List[str], NoDecode] = Field(default_factory=list, alias="API_KEYS")
+    api_keys_raw: str = Field(default="", alias="API_KEYS")
 
     whisper_model: str = Field(default="large-v3", alias="WHISPER_MODEL")
     whisper_compute_type: str = Field(default="int8_float16", alias="WHISPER_COMPUTE_TYPE")
@@ -22,12 +22,9 @@ class Settings(BaseSettings):
     stream_chunk_seconds: float = Field(default=5.0, alias="STREAM_CHUNK_SECONDS")
     stream_sample_rate: int = Field(default=16000, alias="STREAM_SAMPLE_RATE")
 
-    @field_validator("api_keys", mode="before")
-    @classmethod
-    def _split_keys(cls, v):
-        if isinstance(v, str):
-            return [k.strip() for k in v.split(",") if k.strip()]
-        return v
+    @property
+    def api_keys(self) -> List[str]:
+        return [k.strip() for k in self.api_keys_raw.split(",") if k.strip()]
 
 
 @lru_cache
