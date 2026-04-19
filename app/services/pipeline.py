@@ -77,11 +77,14 @@ class TranscribeDiarizePipeline:
         self,
         audio: np.ndarray,
         language: Optional[str] = None,
+        initial_prompt: Optional[str] = None,
         num_speakers: Optional[int] = None,
         min_speakers: Optional[int] = None,
         max_speakers: Optional[int] = None,
     ) -> DiarizedResult:
-        transcription = self._whisper.transcribe(audio, language=language)
+        transcription = self._whisper.transcribe(
+            audio, language=language, initial_prompt=initial_prompt,
+        )
         diarization = self._diarizer.diarize(
             audio,
             num_speakers=num_speakers,

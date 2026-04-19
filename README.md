@@ -44,8 +44,12 @@ GET /health
 curl -X POST http://localhost:8000/transcribe \
   -H "X-API-Key: change-me-please" \
   -F "file=@sample.wav" \
-  -F "language=ja"   # 省略 or "auto" で自動判定
+  -F "language=ja" \
+  -F "initial_prompt=giziroku, pyannote, faster-whisper, Docker"
 ```
+
+- `language` 省略 or `auto` で自動判定
+- `initial_prompt` は固有名詞の補正ヒント。Whisperが最後の~224トークンしか見ないので短く (長く渡しても後ろから切られるだけ)。常用したい語彙は `.env` の `DEFAULT_INITIAL_PROMPT` に入れておけば毎回付与される
 
 **話者分離あり:**
 ```bash
@@ -67,8 +71,10 @@ curl -H "X-API-Key: change-me-please" http://localhost:8000/jobs/<job_id>
 
 16bit モノラル PCM (デフォルト 16kHz) のバイナリフレームを流し込みます。サーバは約 `STREAM_CHUNK_SECONDS` (既定 5秒) ごとに結果を JSON で返します。終了時はテキスト `flush` を送信。
 
-- `ws://localhost:8000/stream/transcribe?api_key=...&language=ja`
-- `ws://localhost:8000/stream/transcribe-diarize?api_key=...&language=ja`
+- `ws://localhost:8000/stream/transcribe?api_key=...&language=ja&initial_prompt=...`
+- `ws://localhost:8000/stream/transcribe-diarize?api_key=...&language=ja&initial_prompt=...`
+
+無音判定 (`STREAM_SILENCE_RMS` 未満) のチャンクは whisper を呼ばず `{"type":"silence"}` を返します。GPU 使用量とレスポンス遅延を節約できます。
 
 **Python クライアント例:**
 ```python
@@ -101,6 +107,8 @@ asyncio.run(main())
 | `DEFAULT_LANGUAGE` | `ja` (既定) / `en` / `auto` |
 | `MAX_QUEUE_SIZE` | 溢れたら 503 |
 | `STREAM_CHUNK_SECONDS` | 小さいほど低遅延だが精度が落ちる |
+| `STREAM_SILENCE_RMS` | 無音判定閾値。大きくすると小声もスキップ、小さくすると雑音で誤反応 |
+| `DEFAULT_INITIAL_PROMPT` | 毎回 Whisper に渡す固有名詞ヒント |
 
 GTX 1070 (8GB) での目安:
 - `large-v3` + pyannote 同時ロード → 約 4〜5GB 使用、余裕あり

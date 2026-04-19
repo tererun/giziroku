@@ -60,6 +60,7 @@ async def submit_transcribe(
     request: Request,
     file: UploadFile = File(...),
     language: Optional[str] = Form(default=None),
+    initial_prompt: Optional[str] = Form(default=None),
 ):
     """話者分離なしの文字起こし。ジョブをキューに投入して job_id を返す。"""
     path = await _save_upload(file)
@@ -70,7 +71,9 @@ async def submit_transcribe(
         try:
             loop = asyncio.get_running_loop()
             audio = await loop.run_in_executor(None, decode_to_pcm16, path)
-            res = await loop.run_in_executor(None, whisper.transcribe, audio, language)
+            res = await loop.run_in_executor(
+                None, lambda: whisper.transcribe(audio, language=language, initial_prompt=initial_prompt),
+            )
             return _transcribe_to_schema(res).model_dump()
         finally:
             path.unlink(missing_ok=True)
@@ -88,6 +91,7 @@ async def submit_transcribe_diarize(
     request: Request,
     file: UploadFile = File(...),
     language: Optional[str] = Form(default=None),
+    initial_prompt: Optional[str] = Form(default=None),
     num_speakers: Optional[int] = Form(default=None),
     min_speakers: Optional[int] = Form(default=None),
     max_speakers: Optional[int] = Form(default=None),
@@ -106,6 +110,7 @@ async def submit_transcribe_diarize(
                 lambda: pipeline.run(
                     audio,
                     language=language,
+                    initial_prompt=initial_prompt,
                     num_speakers=num_speakers,
                     min_speakers=min_speakers,
                     max_speakers=max_speakers,

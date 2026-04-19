@@ -42,6 +42,7 @@ class WhisperService:
             compute_type=s.whisper_compute_type,
         )
         self._default_language = s.default_language
+        self._default_initial_prompt = s.default_initial_prompt or None
 
     def transcribe(
         self,
@@ -52,13 +53,14 @@ class WhisperService:
     ) -> TranscriptionResult:
         lang = language or self._default_language
         lang_arg = None if lang == "auto" else lang
+        prompt = initial_prompt if initial_prompt is not None else self._default_initial_prompt
 
         segments_iter, info = self._model.transcribe(
             audio,
             language=lang_arg,
             beam_size=5,
             vad_filter=vad_filter,
-            initial_prompt=initial_prompt,
+            initial_prompt=prompt,
             condition_on_previous_text=False,
         )
         segments = [Segment(start=s.start, end=s.end, text=s.text) for s in segments_iter]

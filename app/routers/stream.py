@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 import numpy as np
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.auth import require_api_key_ws
 from app.config import get_settings
@@ -14,6 +14,13 @@ from app.utils.audio import pcm16_bytes_to_float32
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["stream"])
+
+
+def _is_silent(audio: np.ndarray, rms_threshold: float) -> bool:
+    if audio.size == 0:
+        return True
+    rms = float(np.sqrt(np.mean(audio.astype(np.float32) ** 2)))
+    return rms < rms_threshold
 
 
 async def _receive_pcm_chunk(
@@ -41,22 +48,21 @@ async def _receive_pcm_chunk(
                 if not buffer:
                     return np.zeros(0, dtype=np.float32)
                 return pcm16_bytes_to_float32(bytes(buffer))
-            # ignore other text commands
 
 
 @router.websocket("/stream/transcribe")
 async def ws_transcribe(
     websocket: WebSocket,
     language: Optional[str] = Query(default=None),
+    initial_prompt: Optional[str] = Query(default=None),
     api_key: Optional[str] = Query(default=None),
 ):
     """Realtime transcription.
 
-    Protocol:
-      - client opens WS with ?api_key=xxx (or X-API-Key header) and optional ?language=ja
-      - client streams raw 16-bit mono PCM at STREAM_SAMPLE_RATE (default 16k)
-      - server emits JSON `{type: "partial", text, segments, elapsed}` per chunk
-      - client sends text "flush" to end; server replies `{type: "final"}`
+    Query:
+      - language: ja / en / auto / ...
+      - initial_prompt: 固有名詞ヒント (最後の ~224 トークンのみ参照される)
+      - api_key: 認証 (もしくは X-API-Key ヘッダ)
     """
     if not await require_api_key_ws(websocket, api_key):
         return
@@ -78,10 +84,22 @@ async def ws_transcribe(
                 await websocket.close()
                 return
 
+            chunk_duration = audio.size / s.stream_sample_rate
+
+            if _is_silent(audio, s.stream_silence_rms):
+                await websocket.send_json({
+                    "type": "silence",
+                    "offset": elapsed,
+                    "duration": chunk_duration,
+                })
+                elapsed += chunk_duration
+                continue
+
             loop = asyncio.get_running_loop()
             async with queue.gpu_lock:
                 res = await loop.run_in_executor(
-                    None, whisper.transcribe, audio, language
+                    None,
+                    lambda: whisper.transcribe(audio, language=language, initial_prompt=initial_prompt),
                 )
 
             await websocket.send_json({
@@ -94,7 +112,7 @@ async def ws_transcribe(
                 ],
                 "offset": elapsed,
             })
-            elapsed += audio.size / s.stream_sample_rate
+            elapsed += chunk_duration
     except WebSocketDisconnect:
         return
 
@@ -103,6 +121,7 @@ async def ws_transcribe(
 async def ws_transcribe_diarize(
     websocket: WebSocket,
     language: Optional[str] = Query(default=None),
+    initial_prompt: Optional[str] = Query(default=None),
     api_key: Optional[str] = Query(default=None),
 ):
     """Realtime transcription + speaker diarization per buffered chunk.
@@ -131,10 +150,22 @@ async def ws_transcribe_diarize(
                 await websocket.close()
                 return
 
+            chunk_duration = audio.size / s.stream_sample_rate
+
+            if _is_silent(audio, s.stream_silence_rms):
+                await websocket.send_json({
+                    "type": "silence",
+                    "offset": elapsed,
+                    "duration": chunk_duration,
+                })
+                elapsed += chunk_duration
+                continue
+
             loop = asyncio.get_running_loop()
             async with queue.gpu_lock:
                 transcription = await loop.run_in_executor(
-                    None, whisper.transcribe, audio, language
+                    None,
+                    lambda: whisper.transcribe(audio, language=language, initial_prompt=initial_prompt),
                 )
                 diar = await loop.run_in_executor(None, diarizer.diarize, audio)
             merged = merge_transcription_with_diarization(transcription, diar)
@@ -153,6 +184,6 @@ async def ws_transcribe_diarize(
                     for seg in merged.segments
                 ],
             })
-            elapsed += audio.size / s.stream_sample_rate
+            elapsed += chunk_duration
     except WebSocketDisconnect:
         return

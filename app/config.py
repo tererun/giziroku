@@ -21,6 +21,9 @@ class Settings(BaseSettings):
 
     stream_chunk_seconds: float = Field(default=5.0, alias="STREAM_CHUNK_SECONDS")
     stream_sample_rate: int = Field(default=16000, alias="STREAM_SAMPLE_RATE")
+    stream_silence_rms: float = Field(default=0.01, alias="STREAM_SILENCE_RMS")
+
+    default_initial_prompt: str = Field(default="", alias="DEFAULT_INITIAL_PROMPT")
 
     @property
     def api_keys(self) -> List[str]:
