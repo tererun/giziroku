@@ -7,6 +7,7 @@ websockets==13.1
 
 faster-whisper==1.0.3
 pyannote.audio==3.3.2
+huggingface_hub<0.26
 
 numpy==1.26.4
 soundfile==0.12.1
