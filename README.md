@@ -97,7 +97,7 @@ asyncio.run(main())
 | 変数 | 用途 |
 |---|---|
 | `WHISPER_MODEL` | `tiny` / `base` / `small` / `medium` / `large-v2` / `large-v3` |
-| `WHISPER_COMPUTE_TYPE` | `int8_float16` (推奨) / `float16` / `int8` |
+| `WHISPER_COMPUTE_TYPE` | Pascal (GTX10xx): `int8_float32` 推奨 / `int8` / `float32`。Volta以降: `int8_float16` 推奨 |
 | `DEFAULT_LANGUAGE` | `ja` (既定) / `en` / `auto` |
 | `MAX_QUEUE_SIZE` | 溢れたら 503 |
 | `STREAM_CHUNK_SECONDS` | 小さいほど低遅延だが精度が落ちる |
